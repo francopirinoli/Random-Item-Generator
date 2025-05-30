@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPG Item Generator Test Harness</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        canvas {
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            border: 1px solid #4A5568; /* gray-700 */
+        }
+        .item-card {
+            background-color: #2D3748; /* gray-800 */
+            border: 1px solid #4A5568; /* gray-700 */
+            border-radius: 0.5rem;
+            padding: 1rem;
+            color: #E2E8F0; /* gray-300 */
+        }
+        .item-card h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .item-card h4 { /* Style for the Magical Properties, Spells & Effects heading */
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 0.75rem;
+            margin-bottom: 0.25rem;
+            color: #A0AEC0; /* gray-500 */
+        }
+        .item-card p {
+            margin-bottom: 0.25rem;
+            font-size: 0.875rem;
+        }
+        .item-card strong {
+            color: #A0AEC0; /* gray-500 */
+        }
+        .item-card ul {
+            list-style-type: disc;
+            padding-left: 1.25rem; /* Indent list items */
+            font-size: 0.875rem;
+        }
+        .item-card .spell-details, .item-card .potion-effect-details {
+            font-size: 0.8em;
+            color: #A0AEC0; /* gray-500 */
+            margin-left: 0.5rem;
+        }
+        .item-card .rarity-COMMON { color: #E5E7EB; }
+        .item-card .rarity-UNCOMMON { color: #4ADE80; }
+        .item-card .rarity-RARE { color: #60A5FA; }
+        .item-card .rarity-EPIC { color: #C084FC; }
+        .item-card .rarity-LEGENDARY { color: #FACC15; }
+
+        select, input[type="text"] {
+            background-color: #4A5568;
+            border-color: #718096;
+            color: #E2E8F0;
+        }
+        label {
+            color: #CBD5E0;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-gray-200 min-h-screen flex flex-col items-center p-4 sm:p-8">
+
+    <div class="w-full max-w-4xl bg-gray-800 shadow-xl rounded-lg p-6">
+        <header class="mb-6 text-center">
+            <h1 class="text-3xl font-bold text-purple-400">RPG Item Generator Test Harness</h1>
+        </header>
+
+        <section id="controls" class="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+            <div>
+                <label for="category-select" class="block text-sm font-medium mb-1">Category:</label>
+                <select id="category-select" class="w-full p-2 border rounded-md focus:ring-purple-500 focus:border-purple-500"></select>
+            </div>
+            <div>
+                <label for="subtype-select" class="block text-sm font-medium mb-1">Sub-Type:</label>
+                <select id="subtype-select" class="w-full p-2 border rounded-md focus:ring-purple-500 focus:border-purple-500"></select>
+            </div>
+            <div>
+                <label for="rarity-select" class="block text-sm font-medium mb-1">Rarity:</label>
+                <select id="rarity-select" class="w-full p-2 border rounded-md focus:ring-purple-500 focus:border-purple-500"></select>
+            </div>
+            <div class="sm:col-span-2 lg:grid-cols-2">
+                <label for="material-input" class="block text-sm font-medium mb-1">Material ID (Optional, e.g., GLASS):</label>
+                <input type="text" id="material-input" placeholder="Default if empty" class="w-full p-2 border rounded-md focus:ring-purple-500 focus:border-purple-500">
+            </div>
+             <div>
+                <label for="potion-effect-select" class="block text-sm font-medium mb-1">Potion Effect (if Consumable):</label>
+                <select id="potion-effect-select" class="w-full p-2 border rounded-md focus:ring-purple-500 focus:border-purple-500" disabled></select>
+            </div>
+            <div class="sm:col-span-full">
+                <button id="generate-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-md transition duration-150">
+                    Generate Item
+                </button>
+            </div>
+        </section>
+
+        <section id="output" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <h2 class="text-xl font-semibold mb-2 text-purple-300">Generated Item Art</h2>
+                <canvas id="item-canvas" width="256" height="256" class="bg-gray-700 rounded-md"></canvas>
+            </div>
+            <div class="item-card">
+                <h2 class="text-xl font-semibold mb-2 text-purple-300">Item Details (Card View)</h2>
+                <div id="item-card-display">
+                    <p>Click "Generate Item" to see details.</p>
+                </div>
+            </div>
+            <div class="md:col-span-2">
+                <h2 class="text-xl font-semibold mb-2 mt-4 text-purple-300">Raw Item Data (JSON)</h2>
+                <pre id="item-data-json" class="bg-gray-700 p-4 rounded-md text-xs overflow-x-auto max-h-96"></pre>
+            </div>
+        </section>
+    </div>
+
+    <script type="module">
+        // Main RPG Item Generator
+        import { generateRPGItem } from './magic_item_generator/rpgItemGenerator.js';
+        // Shared Definitions
+        import { ITEM_CATEGORIES as ALL_ITEM_CATEGORIES, RARITIES, MATERIALS } from './magic_item_generator/sharedDefinitions.js';
+        // Sub-Type Definitions
+        import { SWORD_SUB_TYPES } from './magic_item_generator/categories/swords/swordDefinitions.js';
+        import { AXE_SUB_TYPES } from './magic_item_generator/categories/axes/axeDefinitions.js';
+        import { BLUNT_SUB_TYPES } from './magic_item_generator/categories/blunt/bluntDefinitions.js';
+        import { POLEARM_SUB_TYPES } from './magic_item_generator/categories/polearms/polearmDefinitions.js';
+        import { BOW_SUB_TYPES } from './magic_item_generator/categories/bows/bowDefinitions.js';
+        import { STAFF_SUB_TYPES } from './magic_item_generator/categories/staves/staffDefinitions.js';
+        import { ARMOR_SUB_TYPES } from './magic_item_generator/categories/armor/armorDefinitions.js';
+        import { SHIELD_SUB_TYPES } from './magic_item_generator/categories/shields/shieldDefinitions.js';
+        import { HEADWEAR_SUB_TYPES } from './magic_item_generator/categories/headwear/headwearDefinitions.js';
+        import { FOOTWEAR_SUB_TYPES } from './magic_item_generator/categories/footwear/footwearDefinitions.js';
+        import { ACCESSORY_SUB_TYPES } from './magic_item_generator/categories/accessories/accessoryDefinitions.js';
+        import { SPELLBOOK_SUB_TYPES } from './magic_item_generator/categories/spellbooks/spellbookDefinitions.js';
+        import { CONSUMABLE_SUB_TYPES, POTION_EFFECT_TYPES } from './magic_item_generator/categories/consumables/potionDefinitions.js';
+
+
+        // DOM Elements
+        const categorySelect = document.getElementById('category-select');
+        const subtypeSelect = document.getElementById('subtype-select');
+        const raritySelect = document.getElementById('rarity-select');
+        const materialInput = document.getElementById('material-input');
+        const potionEffectSelect = document.getElementById('potion-effect-select');
+        const generateBtn = document.getElementById('generate-btn');
+        const itemCanvas = document.getElementById('item-canvas');
+        const itemCtx = itemCanvas.getContext('2d');
+        const itemCardDisplay = document.getElementById('item-card-display');
+        const itemDataJson = document.getElementById('item-data-json');
+
+        // --- Populate Dropdowns ---
+        for (const categoryId in ALL_ITEM_CATEGORIES) {
+            const category = ALL_ITEM_CATEGORIES[categoryId];
+            if (category.generatorFunctionName || (category.subTypeDefinitionFile && category.subTypeObjectName)) {
+                const option = document.createElement('option');
+                option.value = categoryId;
+                option.textContent = category.name;
+                categorySelect.appendChild(option);
+            }
+        }
+
+        for (const rarityId in RARITIES) {
+            const option = document.createElement('option');
+            option.value = rarityId;
+            option.textContent = RARITIES[rarityId].name;
+            raritySelect.appendChild(option);
+        }
+        raritySelect.value = "COMMON"; 
+
+        const ALL_SUB_TYPE_DEFINITIONS = {
+            SWORDS: SWORD_SUB_TYPES,
+            AXES: AXE_SUB_TYPES,
+            BLUNT_WEAPONS: BLUNT_SUB_TYPES,
+            POLEARMS: POLEARM_SUB_TYPES,
+            BOWS: BOW_SUB_TYPES,
+            STAVES: STAFF_SUB_TYPES,
+            ARMOR: ARMOR_SUB_TYPES,
+            SHIELD: SHIELD_SUB_TYPES,
+            HEADWEAR: HEADWEAR_SUB_TYPES,
+            FOOTWEAR: FOOTWEAR_SUB_TYPES,
+            ACCESSORY: ACCESSORY_SUB_TYPES,
+            SPELLBOOK: SPELLBOOK_SUB_TYPES,
+            CONSUMABLE: CONSUMABLE_SUB_TYPES,
+        };
+
+        potionEffectSelect.innerHTML = '<option value="">Random Effect</option>'; 
+        for (const effectKey in POTION_EFFECT_TYPES) {
+            const effectName = POTION_EFFECT_TYPES[effectKey].nameSuffix || effectKey.replace(/_/g, " ");
+            const option = document.createElement('option');
+            option.value = effectKey;
+            option.textContent = effectName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            potionEffectSelect.appendChild(option);
+        }
+
+
+        function updateSubTypeDropdown() {
+            const selectedCategoryId = categorySelect.value;
+            subtypeSelect.innerHTML = ''; 
+
+            const subTypesForCategory = ALL_SUB_TYPE_DEFINITIONS[selectedCategoryId] || {};
+
+            if (Object.keys(subTypesForCategory).length > 0 && selectedCategoryId !== "SPELLBOOK" && selectedCategoryId !== "CONSUMABLE") { 
+                for (const subTypeId in subTypesForCategory) {
+                    const option = document.createElement('option');
+                    option.value = subTypeId;
+                    option.textContent = subTypesForCategory[subTypeId].name;
+                    subtypeSelect.appendChild(option);
+                }
+                subtypeSelect.disabled = false;
+            } else {
+                const option = document.createElement('option');
+                let defaultText = "N/A (Category Default)";
+                if (selectedCategoryId === "SPELLBOOK") defaultText = "N/A (Generic Spellbook)";
+                else if (selectedCategoryId === "CONSUMABLE") defaultText = "Potion"; 
+                
+                option.textContent = defaultText;
+                if (selectedCategoryId === "CONSUMABLE") option.value = "POTION"; 
+                
+                subtypeSelect.appendChild(option);
+                subtypeSelect.disabled = (selectedCategoryId === "SPELLBOOK" || (selectedCategoryId === "CONSUMABLE" && Object.keys(subTypesForCategory).length <= 1) );
+            }
+            
+            potionEffectSelect.disabled = (selectedCategoryId !== "CONSUMABLE");
+        }
+
+        categorySelect.addEventListener('change', updateSubTypeDropdown);
+        updateSubTypeDropdown();
+
+        generateBtn.addEventListener('click', () => {
+            const options = {
+                itemCategory: categorySelect.value,
+                itemSubTypeId: subtypeSelect.disabled ? null : subtypeSelect.value,
+                rarityId: raritySelect.value,
+                materialId: materialInput.value.trim().toUpperCase() || null
+            };
+            
+            if (options.itemCategory === "SPELLBOOK") {
+                options.itemSubTypeId = "SPELLBOOK_GENERIC"; 
+            } else if (options.itemCategory === "CONSUMABLE") {
+                options.itemSubTypeId = "POTION"; 
+                if (potionEffectSelect.value) {
+                    options.potionEffectTypeKey = potionEffectSelect.value;
+                }
+            }
+
+            console.log("Generating item with options:", options);
+            const item = generateRPGItem(options);
+
+            if (item) {
+                itemCtx.clearRect(0, 0, itemCanvas.width, itemCanvas.height);
+                if (item.pixelArtDataUrl) {
+                    const img = new Image();
+                    img.onload = () => {
+                        itemCtx.imageSmoothingEnabled = false; 
+                        itemCtx.drawImage(img, 0, 0, itemCanvas.width, itemCanvas.height);
+                    };
+                    img.onerror = () => {
+                        itemCtx.fillStyle = 'purple';
+                        itemCtx.font = '12px Arial';
+                        itemCtx.textAlign = 'center';
+                        itemCtx.fillText('Art Load Error', itemCanvas.width / 2, itemCanvas.height / 2);
+                    };
+                    img.src = item.pixelArtDataUrl;
+                } else {
+                     itemCtx.fillStyle = 'gray';
+                     itemCtx.font = '12px Arial';
+                     itemCtx.textAlign = 'center';
+                     itemCtx.fillText('No Art Generated', itemCanvas.width / 2, itemCanvas.height / 2);
+                }
+
+                itemDataJson.textContent = JSON.stringify(item, null, 2);
+                renderItemCard(item);
+
+            } else {
+                itemDataJson.textContent = "Error generating item. Check console for details.";
+                itemCardDisplay.innerHTML = "<p class='text-red-400'>Error generating item. See console.</p>";
+                itemCtx.clearRect(0, 0, itemCanvas.width, itemCanvas.height);
+                itemCtx.fillStyle = 'red';
+                itemCtx.font = '16px Arial';
+                itemCtx.textAlign = 'center';
+                itemCtx.fillText('Generation Error', itemCanvas.width / 2, itemCanvas.height / 2);
+            }
+        });
+
+        function formatEffectValue(value, effectType) {
+            if (value > 0 && (effectType.includes('_boost') || effectType.includes('Bonus') || effectType.includes('heal') || effectType.includes('acBonus') || effectType.includes('hp') || effectType.includes('mp') || effectType.includes('requirement'))) {
+                return `+${value}`;
+            }
+            return value;
+        }
+
+        function renderItemCard(item) {
+            let magicalPropertiesSection = '';
+            if (item.magicalProperties && item.magicalProperties.length > 0) {
+                let propertiesHtml = '<ul>';
+                item.magicalProperties.forEach(prop => {
+                    propertiesHtml += `<li>${prop.description || prop.name}</li>`;
+                });
+                propertiesHtml += '</ul>';
+                magicalPropertiesSection = `
+                    <h4>Magical Properties:</h4>
+                    ${propertiesHtml}
+                `;
+            }
+
+            let baseStatsHtml = '';
+            if (item.baseStats && Object.keys(item.baseStats).length > 0) { 
+                if (item.baseStats.damage) {
+                    let damageString = item.baseStats.damage;
+                    if (item.baseStats.damageMaterialMod) {
+                        damageString += (item.baseStats.damageMaterialMod >= 0 ? `+${item.baseStats.damageMaterialMod}` : `${item.baseStats.damageMaterialMod}`);
+                    }
+                    if (item.baseStats.damageFlatBonus) {
+                         damageString += (item.baseStats.damageFlatBonus >= 0 ? `+${item.baseStats.damageFlatBonus}` : `${item.baseStats.damageFlatBonus}`);
+                    }
+                    baseStatsHtml += `<p><strong>Damage:</strong> ${damageString} ${item.baseStats.damageAttribute ? '('+item.baseStats.damageAttribute+')' : ''}</p>`;
+                }
+                if (item.baseStats.acBonus !== undefined && item.baseStats.acBonus !== 0) { 
+                    baseStatsHtml += `<p><strong>AC Bonus:</strong> ${formatEffectValue(item.baseStats.acBonus, 'acBonus')}</p>`;
+                }
+                 if (item.baseStats.hp !== undefined && item.baseStats.hp !== 0) {
+                    baseStatsHtml += `<p><strong>HP Bonus:</strong> ${formatEffectValue(item.baseStats.hp, 'hp_boost')}</p>`;
+                }
+                if (item.baseStats.mp !== undefined && item.baseStats.mp !== 0) {
+                    baseStatsHtml += `<p><strong>MP Bonus:</strong> ${formatEffectValue(item.baseStats.mp, 'mp_boost')}</p>`;
+                }
+
+                const attributesToShow = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+                let attributeBonusesString = "";
+                attributesToShow.forEach(attr => {
+                    if (item.baseStats[attr] !== undefined && item.baseStats[attr] !== 0) {
+                        if (attributeBonusesString.length > 0) attributeBonusesString += ", ";
+                        attributeBonusesString += `${attr.toUpperCase()} ${formatEffectValue(item.baseStats[attr], 'attribute_boost')}`;
+                    }
+                });
+                if (attributeBonusesString.length > 0) {
+                     baseStatsHtml += `<p><strong>Attribute Bonuses:</strong> ${attributeBonusesString}</p>`;
+                }
+
+                let requirementsString = "";
+                if (item.baseStats.minStrMod !== undefined && item.baseStats.minStrMod > -3) {
+                    requirementsString += `STR ${formatEffectValue(item.baseStats.minStrMod, 'requirement')}`;
+                }
+                if (item.baseStats.minConMod !== undefined && item.baseStats.minConMod > -3) {
+                    if (requirementsString.length > 0) requirementsString += ", ";
+                    requirementsString += `CON ${formatEffectValue(item.baseStats.minConMod, 'requirement')}`;
+                }
+                if (item.type !== "SPELLBOOK" && item.type !== "CONSUMABLE" && item.baseStats.minIntMod !== undefined && item.baseStats.minIntMod > -3) { 
+                    if (requirementsString.length > 0) requirementsString += ", ";
+                    requirementsString += `INT ${formatEffectValue(item.baseStats.minIntMod, 'requirement')}`;
+                }
+                if (requirementsString.length > 0) {
+                    baseStatsHtml += `<p><strong>Requirements:</strong> ${requirementsString}</p>`;
+                }
+            }
+
+            let spellsHtml = '';
+            if (item.spells && item.spells.length > 0) {
+                spellsHtml = '<h4>Spells Contained:</h4><ul>';
+                item.spells.forEach(spell => {
+                    const intReqFormatted = formatEffectValue(spell.minIntMod, 'requirement');
+                    spellsHtml += `<li><strong>${spell.name || 'Unnamed Spell'}:</strong> ${spell.description || 'No description.'} <span class="spell-details">(Cost: ${spell.mpCost || 'N/A'} MP, INT Requirement: ${intReqFormatted})</span></li>`;
+                });
+                spellsHtml += '</ul>';
+            }
+
+            let potionEffectHtml = '';
+            if (item.type === "CONSUMABLE" && item.formattedEffectDescription) {
+                potionEffectHtml = `<h4>Potion Effect:</h4><p>${item.formattedEffectDescription}</p>`;
+            }
+
+            let subTypeNameDisplay = item.subType; 
+            const categoryInfo = ALL_ITEM_CATEGORIES[item.type];
+            if (categoryInfo && ALL_SUB_TYPE_DEFINITIONS[item.type] && ALL_SUB_TYPE_DEFINITIONS[item.type][item.subType]) {
+                subTypeNameDisplay = ALL_SUB_TYPE_DEFINITIONS[item.type][item.subType].name;
+            } else if (categoryInfo) { 
+                if (item.type === "SPELLBOOK") subTypeNameDisplay = "Spellbook";
+                else if (item.type === "CONSUMABLE") subTypeNameDisplay = "Potion";
+                else subTypeNameDisplay = item.subType;
+            }
+
+            const rarityNameDisplay = item.rarity && RARITIES[item.rarity] ? RARITIES[item.rarity].name : item.rarity;
+
+            let primaryMaterialDisplay = 'N/A';
+            let primaryMaterialLabel = "Material:";
+            if (item.type === "SPELLBOOK") primaryMaterialLabel = "Cover Material:";
+            else if (item.type === "CONSUMABLE") primaryMaterialLabel = "Container:";
+
+
+            if (item.material && MATERIALS[item.material.toUpperCase()]) {
+                primaryMaterialDisplay = MATERIALS[item.material.toUpperCase()].name;
+            } else if (item.material) { 
+                primaryMaterialDisplay = item.material.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            }
+
+            let componentMaterialsHtml = '';
+            if (item.materials) { 
+                for (const part in item.materials) {
+                    // Skip internal raw data fields starting with underscore
+                    if (part.startsWith('_')) {
+                        continue;
+                    }
+                    if (item.materials.hasOwnProperty(part) && part !== 'primary' && item.materials[part]) {
+                        if (item.type === "CONSUMABLE" && part === "liquidColor") {
+                             componentMaterialsHtml += `<p><strong>Liquid:</strong> ${item.materials[part].replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>`;
+                             continue;
+                        }
+
+                        const materialKey = item.materials[part].toUpperCase();
+                        let materialName = MATERIALS[materialKey]?.name ||
+                                           item.materials[part].toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+                        if (item.materials[part].toLowerCase() === (item.material || '').toLowerCase()) {
+                            if (!(item.type === "BOWS" && part === "string")) { 
+                                continue;
+                            }
+                        }
+                        const partName = part.charAt(0).toUpperCase() + part.slice(1);
+                        componentMaterialsHtml += `<p><strong>${partName}:</strong> ${materialName}</p>`;
+                    }
+                }
+            }
+            
+            const displayDescription = item.description || 'No description.';
+
+            itemCardDisplay.innerHTML = `
+                <h3 class="rarity-${item.rarity}">${item.name || 'Unnamed Item'}</h3>
+                <p><strong>Type:</strong> ${subTypeNameDisplay}</p>
+                <p><strong>Rarity:</strong> <span class="rarity-${item.rarity}">${rarityNameDisplay}</span></p>
+                <p><strong>${primaryMaterialLabel}</strong> ${primaryMaterialDisplay}</p>
+                ${componentMaterialsHtml}
+                ${baseStatsHtml}
+                ${magicalPropertiesSection}
+                ${spellsHtml}
+                ${potionEffectHtml} 
+                <p><strong>Description:</strong> <em>${displayDescription}</em></p>
+                <p><strong>Value:</strong> ${item.value || 'N/A'} Gold</p>
+            `;
+        }
+        updateSubTypeDropdown();
+    </script>
+</body>
+</html>
